@@ -1,5 +1,3 @@
-#include <vector>
-#include <iostream>
 int func() {
     return 0;
 }
@@ -7,7 +5,7 @@ int func() {
 
 int main() {
     int a = 4 << 2, b = 3;
-    if( a <= b){
+    if( a || b){
         std::cout << "a <= b" << std::endl;
     } else {
         std::cout << "a > b" << std::endl;
