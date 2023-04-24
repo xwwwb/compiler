@@ -1,6 +1,0 @@
-// 此文本将会被词法分析器扫描
-
-int main(){
-    printf("Hello World!");
-    return 0;
-}

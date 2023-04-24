@@ -4,13 +4,14 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include <iomanip>
 using namespace std;
 
 // 为了开发阶段方便区分
 enum {
   KEYWORD_,    // 关键字
   DELIMITERS_, // 界符
-  OPERATOR_,   // 操作符
+  OPERATOR_,   // 运算符
   CHARACTER_,  // 标识符
   COMMENTS_,   // 注释 种别码 -1
   NUMBERS_,    // 数字
@@ -19,7 +20,7 @@ enum {
   SPACE_,      // 空格
 };
 
-static string name_[9] = {"关键字", "界符", "操作符", "标识符", "注释", "数字", "字符常量", "错误", "空格"};
+static string name_[9] = {"关键字", "界符", "运算符", "标识符", "注释", "数字", "字符常量", "错误", "空格"};
 
 const int EOF_ = -1;
 const int UNDEFINED_ = -2;
@@ -32,7 +33,7 @@ public:
   Token(string value, string code, int category)
       : value(std::move(value)), code(std::move(code)), category(category) {}
   friend ostream &operator<<(ostream &os, const Token &token) {
-    os << "值：" << token.value << " 种别码：" << token.code << " 分类："
+    os << "值：" <<left<<setw(20)<< token.value << "种别码："<<setw(20) << token.code << "分类："
        <<  name_[token.category]  << endl;
     return os;
   }
@@ -40,7 +41,7 @@ public:
 
 class Lexical {
 public:
-  explicit Lexical(string INPUT_FILENAME);
+  explicit Lexical(string input_filename);
   ~Lexical();
   void init() const; // 初始化 读入文件和存入种别码
   static vector<string>
@@ -54,7 +55,7 @@ public:
   // 保存完整的code
   string code;
   // 保存当前没有读到尾的code
-  string current_code;
+  string tempCode;
   // 代码长度
   size_t length;
   // 当前位置
@@ -62,7 +63,7 @@ public:
   // 保存种别码和分类
   map<string, vector<int>> *categorize;
   // 需要读取的文件名字
-  string INPUT_FILENAME;
+  string code_file;
   // 保存最终结果
   vector<Token> result;
 
@@ -71,4 +72,6 @@ public:
   static bool isDigit(char ch);
   bool isKeyword(const string &str) const;
   bool isDelimiters(char ch) const;
+  bool isOperator(const string &str ) const;
+  void show_result() const;
 };

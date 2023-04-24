@@ -3,8 +3,8 @@
 #include <string>
 #include <utility>
 
-Lexical::Lexical(string INPUT_FILENAME)
-        : INPUT_FILENAME(std::move(INPUT_FILENAME)) {
+Lexical::Lexical(string input_filename) {
+    code_file = std::move(input_filename);
     categorize = new map<string, vector<int>>();
     pointer = 0;
     length = 0;
@@ -42,13 +42,13 @@ vector<string> Lexical::split(string &str) {
 vector<string> Lexical::readFile(const string &filename) {
     ifstream fileReader;
     fileReader.open(filename);
-    vector<string> line; // 存入每一行
-    string temp;         // 每行的临时变量
+    vector<string> line;// 存入每一行
+    string temp;        // 每行的临时变量
     while (getline(fileReader, temp)) {
 #ifdef __APPLE__
         // 去除\r
         if (temp[temp.size() - 1] == '\r') {
-            temp = temp.substr(0, temp.size()-1);
+            temp = temp.substr(0, temp.size() - 1);
         }
         line.push_back(temp);
 #else
@@ -60,7 +60,7 @@ vector<string> Lexical::readFile(const string &filename) {
 
 // 初始化读取器
 void Lexical::reader_init() {
-    vector<string> code_lines = readFile(INPUT_FILENAME);
+    vector<string> code_lines = readFile(code_file);
     for (const auto &line: code_lines) {
         code = code + line + "\n";
     }
@@ -79,36 +79,91 @@ void Lexical::reader() {
 
 int Lexical::judge(char ch) {
     if (isLetter(ch)) {
-        current_code = ch;
+        tempCode = ch;
         char next = get_next();
 
         while (isLetter(next) || isDigit(next)) {
-            current_code += next;
+            tempCode += next;
             pointer++;
             next = get_next();
         }
-        return isKeyword(current_code) ? KEYWORD_ : CHARACTER_;
+        return isKeyword(tempCode) ? KEYWORD_ : CHARACTER_;
     }
     if (isDelimiters(ch)) {
-        current_code = ch;
+        // 有可能是界符 有可能是运算符 例如 <<
+        char next = get_next();
+        if (isDelimiters(next)) {
+            // 运算符
+            tempCode = string(1, ch) + string(1, next);
+            if (isOperator(tempCode)) {
+                pointer += 1;// 为什么不和下面一样加2
+                return OPERATOR_;
+            } else {
+                tempCode = ch;
+                return DELIMITERS_;
+            }
+        }
+        // 可能是常量
+        if (ch == '\'' || ch == '\"') {
+            // 推入一个引号
+            tempCode = ch;
+            result.emplace_back(tempCode,
+                                to_string(categorize->at(tempCode)[0]), DELIMITERS_);
+            tempCode = "";
+            while (get_next() != ch) {
+                pointer++;
+                tempCode += code[pointer];
+            }
+            // 推入后 再推入一个引号
+            return TEXTS_;
+        }
+
+        // 界符
+        tempCode = ch;
         return DELIMITERS_;
     }
-    if (ch == ' ' || ch == '\t' || ch == '\n' || ch =='\r' ) {
+    if (isDigit(ch)) {
+        tempCode = ch;
+        char next = get_next();
+        while (isDigit(next) || next == '.') {
+            tempCode += next;
+            pointer++;
+            next = get_next();
+        }
+        return NUMBERS_;
+    }
+
+    if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
         return SPACE_;
     }
     if (ch == '/') {
         char next = get_next();
         if (next == '/') {
-            pointer += 2; // 跳过双斜杠
-            // 表明当前是注释，读到下一个换行符为止 并保存进current_code
+            pointer += 2;// 跳过双斜杠
+            // 表明当前是注释，读到下一个换行符为止 并保存进tempCode
             while (get_next() != '\n') {
-                current_code += code[pointer];
+                tempCode += code[pointer];
                 pointer++;
             }
-            current_code += code[pointer];
+            tempCode += code[pointer];
+            // 去除首空格
+            while (tempCode[0] == ' ') {
+                tempCode = tempCode.substr(1, tempCode.size());
+            }
 
             return COMMENTS_;
         }
+    }
+    if (isOperator(string(1, ch))) {
+        // 下一个字符也是运算符
+        char next = get_next();
+        if (next == ':'){
+            tempCode = string(1, ch) + string(1, next);
+            pointer++;
+            return OPERATOR_;
+        }
+        tempCode = ch;
+        return OPERATOR_;
     }
     return UNDEFINED_;
 }
@@ -116,41 +171,41 @@ int Lexical::judge(char ch) {
 // 返回值有 0 正常 __EOF__ 文件结束 __UNDEFINED__ 未定义
 int Lexical::read_next() {
     int type = judge(code[pointer]);
-    if (pointer >= length) {
-        return EOF_;
-    }
-    if (type == COMMENTS_) {
-        result.emplace_back(current_code, current_code, COMMENTS_);
-        current_code = "";
-        pointer++;
-        return 0;
-    }
     if (type == SPACE_ && pointer < length) {
         pointer++;
         type = judge(code[pointer]);
     }
-    if (type == KEYWORD_) {
-        result.emplace_back(current_code,
-                            to_string(categorize->at(current_code)[0]), KEYWORD_);
-        current_code = "";
+
+    if (pointer >= length) {
+        return EOF_;
+    }
+    if (type == COMMENTS_ || type == CHARACTER_ || type == NUMBERS_ ) {
+        result.emplace_back(tempCode, tempCode, type);
+        tempCode = "";
         pointer++;
         return 0;
     }
-    if (type == CHARACTER_) {
-        result.emplace_back(current_code, current_code, CHARACTER_);
-        current_code = "";
+    if(type == TEXTS_){
+        // 当前是引号
+        Token token = result.back();
+        result.emplace_back(tempCode, tempCode, type);
+        result.emplace_back(token.value, token.value, DELIMITERS_);
+
+        tempCode = "";
+        pointer += 2;
+        return 0;
+    }
+
+    if (type == KEYWORD_ || type == DELIMITERS_ || type == OPERATOR_) {
+        result.emplace_back(tempCode,
+                            to_string(categorize->at(tempCode)[0]), type);
+        tempCode = "";
         pointer++;
         return 0;
     }
-    if (type == DELIMITERS_) {
-        result.emplace_back(
-                current_code, to_string(categorize->at(current_code)[0]), DELIMITERS_);
-        current_code = "";
-        pointer++;
-        return 0;
-    }
+
     if (type == UNDEFINED_) {
-        current_code = "";
+        tempCode = "";
         pointer++;
         return 0;
     }
@@ -192,4 +247,16 @@ bool Lexical::isDelimiters(char ch) const {
         return categorize->at(str)[1] == 1;
     }
     return false;
+}
+bool Lexical::isOperator(const string &str) const {
+    if (categorize->count(str) > 0) {
+        return categorize->at(str)[1] == 2;
+    }
+    return false;
+}
+void Lexical::show_result() const {
+    for (const auto& t : result) {
+        cout << t;
+    }
+    cout << "共计" << result.size() << "个单词" << endl;
 }
