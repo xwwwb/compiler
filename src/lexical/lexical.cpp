@@ -92,7 +92,7 @@ int Lexical::judge(char ch) {
     if (isDelimiters(ch)) {
         // 有可能是界符 有可能是运算符 例如 <<
         char next = get_next();
-        if (isDelimiters(next)) {
+        if (isDelimiters(next) || isOperator(string(1, next))){
             // 运算符
             tempCode = string(1, ch) + string(1, next);
             if (isOperator(tempCode)) {
