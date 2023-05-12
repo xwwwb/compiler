@@ -7,19 +7,12 @@ using namespace std;
 string testCode = "(a,^,a)";
 int pointer = 0;
 string sym;
-void scaner() {
-    if (pointer >= testCode.length()) {
-        sym = "$";// 结束符
-        return;
-    }
-    sym = testCode[pointer];
-    pointer++;
-}
 
 void S();
 void T();
 void T_();
 void error();
+void scaner();
 int main() {
     scaner();
     S();
@@ -29,7 +22,14 @@ int main() {
         cout << "error" << endl;
     }
 }
-
+void scaner() {
+    if (pointer >= testCode.length()) {
+        sym = "$";// 结束符
+        return;
+    }
+    sym = testCode[pointer];
+    pointer++;
+}
 void S() {
     if (sym == "a" || sym == "^") {
         scaner();
