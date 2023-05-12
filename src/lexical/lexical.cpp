@@ -1,7 +1,7 @@
 #include "lexical.h"
 #include <fstream>
 #include <string>
-#include <utility>
+//#include <utility>
 
 Lexical::Lexical(string input_filename) {
     code_file = std::move(input_filename);
@@ -92,7 +92,7 @@ int Lexical::judge(char ch) {
     if (isDelimiters(ch)) {
         // 有可能是界符 有可能是运算符 例如 <<
         char next = get_next();
-        if (isDelimiters(next)) {
+        if (isDelimiters(next) || isOperator(string(1, next))){
             // 运算符
             tempCode = string(1, ch) + string(1, next);
             if (isOperator(tempCode)) {
@@ -157,7 +157,7 @@ int Lexical::judge(char ch) {
     if (isOperator(string(1, ch))) {
         // 下一个字符也是运算符
         char next = get_next();
-        if (next == ':'){
+        if(isOperator(string(1, next))){
             tempCode = string(1, ch) + string(1, next);
             pointer++;
             return OPERATOR_;
