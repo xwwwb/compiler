@@ -4,14 +4,15 @@ LL1::LL1(GrammarList *list) {
     VnList = new vector<string>();
     VtList = new vector<string>();
     VnAndVt = new vector<string>();
+    analyse = new stack<string>();
+    PPT = new vector<GrammarList *>();
     grammars = list;
     // 计算出Vn和Vt
     CalcVnVt();
     // 执行预测分析表的构建
     // 一、计算每一个非终结符的FIRST和FOLLOW
     // 1. 对每一文法符号X属于Vn并Vt，计算FIRST(X)
-    vector<set<string>> FIRST;
-    vector<set<string>> FOLLOW;
+
     // 计算FIRST集合
     for (auto word: *VnAndVt) {
         vector<string> temp = CalcFirst(word);
@@ -23,6 +24,106 @@ LL1::LL1(GrammarList *list) {
         vector<string> temp = CalcFollow(word);
         set<string> temp_(temp.begin(), temp.end());
         FOLLOW.push_back(temp_);
+    }
+    // 构造预测分析表 全error
+    for (auto i: *VnList) {
+        auto temp = new GrammarList();
+        for (auto j: *VtList) {
+            auto temp_ = new Grammar(true);
+            temp->push_back(temp_);
+        }
+        temp->push_back(new Grammar(true));// #
+        PPT->push_back(temp);
+    }
+    for (auto item: *grammars) {
+        // 拿到非终结符
+        string vn = item->Vn;
+        string generator = item->Generate;
+
+        auto it = std::find(VnList->begin(), VnList->end(), vn);
+        int index_vn = distance(VnList->begin(), it);
+        if (item->isEmpty) {
+            set<string> followList = FOLLOW[index_vn];
+            for (auto word: followList) {
+                if (word == "#") {
+                    PPT->at(index_vn)->back() = item;
+                } else {
+                    it = std::find(VtList->begin(), VtList->end(), *followList.begin());
+                    int index_ = distance(VtList->begin(), it);
+                    PPT->at(index_vn)->at(index_) = item;
+                }
+            }
+            continue;
+        }
+        // 对产生式 逐字分析
+        for (int i = 0; i < generator.length(); i++) {
+            string temp(1, generator[i]);
+            auto it = std::find(VnAndVt->begin(), VnAndVt->end(), temp);
+            int index = distance(VnAndVt->begin(), it);
+            set<string> firstList = FIRST[index];
+
+            if (firstList.size() == 1 && *firstList.begin() != "ε") {
+                it = std::find(VtList->begin(), VtList->end(), *firstList.begin());
+                int index_ = distance(VtList->begin(), it);
+                PPT->at(index_vn)->at(index_) = item;
+                break;
+            }
+            int countε = 0;
+            for (auto word: firstList) {
+                if (word != "ε") {
+                    it = std::find(VtList->begin(), VtList->end(), word);
+                    int index_ = distance(VtList->begin(), it);
+                    PPT->at(index_vn)->at(index_) = item;
+                } else {
+                    countε++;
+                    // 找Follow集
+                    set<string> followList = FOLLOW[index_vn];
+                    for (auto word: followList) {
+                        if (word == "#") {
+                            PPT->at(index_vn)->back() = item;
+                        } else {
+                            it = std::find(VtList->begin(), VtList->end(), *followList.begin());
+                            int index_ = distance(VtList->begin(), it);
+                            PPT->at(index_vn)->at(index_) = item;
+                        }
+                    }
+                }
+            }
+            if (countε == 0) {
+                break;
+            }
+        }
+    }
+
+    // 执行打印输出
+    cout << "FIRST集合" << endl;
+    for (int i = 0; i < VnList->size(); i++) {
+        cout << VnList->at(i) << ":\t";
+        for (auto item: FIRST.at(i)) {
+            cout << item << " ";
+        }
+        cout << endl;
+    }
+    cout << "FOLLOW集合" << endl;
+    for (int i = 0; i < VnList->size(); i++) {
+        cout << VnList->at(i) << ":\t";
+        for (auto item: FOLLOW.at(i)) {
+            cout << item << " ";
+        }
+        cout << endl;
+    }
+    // 打印输出预测分析表
+    cout << "预测分析表\nVn\t";
+    for (auto i: *VtList) {
+        cout << "|" << i << "\t";
+    }
+    cout << "|#" << endl;
+    for (int i = 0; i < PPT->size(); i++) {
+        cout << VnList->at(i) << "\t";
+        for (int j = 0; j < PPT->at(i)->size(); j++) {
+            cout << "|" << PPT->at(i)->at(j)->production << "\t";
+        }
+        cout << endl;
     }
 }
 
@@ -86,6 +187,7 @@ void LL1::CalcVnVt() {
     VnAndVt->insert(VnAndVt->end(), VtList->begin(), VtList->end());
 }
 
+// 这里的FIRST计算 针对的是 X属于VnAndVt
 vector<string> LL1::CalcFirst(string word) {
     vector<string> firstList;// word对应的first集
     auto it = std::find(VnList->begin(), VnList->end(), word);
@@ -99,7 +201,7 @@ vector<string> LL1::CalcFirst(string word) {
                     firstList.emplace_back("ε");
                     continue;// 分析下一个产生式
                 }
-                for (int index = 0; index < word.size(); index++) {
+                for (int index = 0; index < item->Generate.length(); index++) {
                     // 取到产生式第index个值
                     string a = string(1, item->Generate.at(index));
                     auto it = std::find(VtList->begin(), VtList->end(), a);
@@ -173,7 +275,7 @@ vector<string> LL1::CalcFollow(string word) {
                     countε++;
                 }
             }
-            if (countε == result.size()) {
+            if (countε > 0) {
                 // 将FollowA加入到FollowB中
                 vector<string> followb = CalcFollow(item->Vn);// 当前产生式的非终结符
                 followList.insert(followList.end(), followb.begin(), followb.end());
@@ -186,4 +288,64 @@ vector<string> LL1::CalcFollow(string word) {
         }
     }
     return followList;
+}
+int LL1::Parser(string input) {
+    cout << "开始对 " << input << " 进行预测分析" << endl;
+    input += "#";
+    analyse->push("#");
+    analyse->push(VnList->front());
+    int input_length = input.length();
+    int input_pointer = 0;
+    output_analyse(*analyse, input);
+    while (true) {
+
+
+        string X = analyse->top();
+        analyse->pop();
+        if (input_pointer >= input_length) return -1;
+        string a = string(1, input[input_pointer]);
+        auto it = std::find(VnList->begin(), VnList->end(), X);
+        auto it_ = std::find(VtList->begin(), VtList->end(), a);
+
+        if (it != VnList->end() || a == "#") {
+            // top目前是非终结符
+            if (X == "#") {
+                if (X == a) {
+                    return 0;
+                } else {
+                    return -1;
+                }
+            }
+            int index = distance(VnList->begin(), it);
+            int index_ = distance(VtList->begin(), it_);
+            // 查找预测分析表
+            auto g = PPT->at(index)->at(index_);
+            if (g->error) {
+                return -1;
+            }
+            // 将产生式逆序放入栈
+            for (int i = g->Generate.size() - 1; i >= 0; i--) {
+                analyse->push(string(1, g->Generate[i]));
+            }
+        } else {
+            // top目前是终结符
+            if (X == a) {
+                input_pointer++;
+            } else {
+                return -1;
+            }
+        }
+        output_analyse(*analyse, input.substr(input_pointer));
+    }
+}
+
+void LL1::output_analyse(stack<string> analyse, string input) {
+    string temp = "";
+    while (!analyse.empty()) {
+        temp = analyse.top()+temp;
+        analyse.pop();
+    }
+    cout<<temp;
+    cout << "\t";
+    cout << input << endl;
 }
