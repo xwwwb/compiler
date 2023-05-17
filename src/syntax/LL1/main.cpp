@@ -18,9 +18,30 @@ int main() {
     G1->push_back(new Grammar("F", "", true, false));
 
     LL1 *G1Parser = new LL1(G1);
-    int result = G1Parser->Parser("(a,a)");
-    if(result == 0){
-        cout << "解析成功"<<endl;
+    if (G1Parser->Parser("(a,a)") == 0) {
+        cout << "解析成功" << endl;
     }
+    if (G1Parser->Parser("(a,^,a)") == 0) {
+        cout << "解析成功" << endl;
+    }
+    if (G1Parser->Parser("a") == 0) {
+        cout << "解析成功" << endl;
+    }
+
+    auto *G2 = new GrammarList();
+    G2->push_back(new Grammar("S", "aAB", false, true));
+    G2->push_back(new Grammar("A", "bB", false, false));
+    G2->push_back(new Grammar("A", "dA", false, false));
+    G2->push_back(new Grammar("A", "", true, false));
+    G2->push_back(new Grammar("B", "a", false, false));
+    G2->push_back(new Grammar("B", "e", false, false));
+    LL1 *G2Parser = new LL1(G2);
+    if (G2Parser->Parser("abae") == 0) {
+        cout << "解析成功" << endl;
+    }
+    if (G2Parser->Parser("aa") == 0) {
+        cout << "解析成功" << endl;
+    }
+
     return 0;
 }
